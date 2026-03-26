@@ -25,6 +25,8 @@ st.markdown("""
   .block-container { padding-top: 1.5rem; }
   h1 { color: #7c3aed; }
   h2 { color: #a78bfa; border-bottom: 1px solid #3f3f5a; padding-bottom: 6px; }
+  [data-testid="stMetricValue"] { font-size: 1.5rem !important; overflow: visible !important; white-space: nowrap !important; }
+  [data-testid="stMetricLabel"] { font-size: 0.8rem !important; white-space: nowrap !important; overflow: hidden !important; text-overflow: ellipsis !important; }
 </style>
 """, unsafe_allow_html=True)
 
