@@ -88,27 +88,33 @@ def fmt(n, prefix="$", decimals=2):
     return f"{prefix}{n:,.{decimals}f}" if prefix == "$" else f"{n:,.{decimals}f}"
 
 # ─── Sidebar navigation ───────────────────────────────────────────────────────
-st.sidebar.image("https://img.icons8.com/fluency/96/artificial-intelligence.png", width=64)
+col_logo1, col_logo2 = st.sidebar.columns(2)
+import os as _os
+if _os.path.exists("assets/logo_client.png"):
+    col_logo1.image("assets/logo_client.png", use_container_width=True)
+if _os.path.exists("assets/logo_synaptic.png"):
+    col_logo2.image("assets/logo_synaptic.png", use_container_width=True)
+
 st.sidebar.title("SynapticAIHub")
-st.sidebar.caption("Analytics Dashboard")
+st.sidebar.caption("Tableau de bord analytique")
 
 page = st.sidebar.radio(
     "Navigation",
-    ["📊 Dashboard", "📅 Periods", "➕ Add Period", "⚙️ Settings"],
+    ["📊 Tableau de bord", "📅 Périodes", "➕ Ajouter une période", "⚙️ Paramètres"],
 )
 
 settings  = get_settings()
 periods   = get_periods()
 
 # ═══════════════════════════════════════════════════════════════════════════════
-# PAGE: DASHBOARD
+# PAGE: TABLEAU DE BORD
 # ═══════════════════════════════════════════════════════════════════════════════
-if page == "📊 Dashboard":
+if page == "📊 Tableau de bord":
     st.title("🧠 AIEM SynapticAIHub Analytics")
 
     if not periods:
-        st.info("No data yet. Go to **➕ Add Period** to enter your first period, or use the **Seed Demo Data** button below.")
-        if st.button("🌱 Seed Demo Data"):
+        st.info("Aucune donnée. Allez à **➕ Ajouter une période** pour saisir votre première période, ou utilisez le bouton **Données de démonstration** ci-dessous.")
+        if st.button("🌱 Données de démonstration"):
             demo = {
                 "id": str(uuid.uuid4()),
                 "period_start": "2026-02-22",
@@ -129,59 +135,65 @@ if page == "📊 Dashboard":
             }
             demo = calculate_totals(demo, settings)
             db.periods.insert_one(demo.copy())
-            st.success("Demo data loaded! Refreshing...")
+            st.success("Données de démonstration chargées ! Actualisation...")
             st.rerun()
         st.stop()
 
-    # Period selector
+    # Sélecteur de période
     period_labels = [f"{p['period_start']} → {p['period_end']}" for p in periods]
-    sel_label = st.selectbox("Select period", period_labels)
+    sel_label = st.selectbox("Sélectionner une période", period_labels)
     p = periods[period_labels.index(sel_label)]
 
     # ── KPI Row ──────────────────────────────────────────────────────────────
-    st.markdown("### Key Performance Indicators")
-    k1, k2, k3, k4, k5 = st.columns(5)
-    k1.metric("Total Cost", f"${p.get('total_cost', 0):,.2f} CAD")
-    k2.metric("Clients",    f"{p.get('total_clients', 0):,}")
-    k3.metric("Cost / Client", f"${p.get('cost_per_client', 0):,.2f}")
-    k4.metric("Hours Saved", f"{p.get('estimated_hours_saved', 0):,.1f} h")
-    k5.metric("Salary Savings", f"${p.get('estimated_salary_savings', 0):,.2f}")
+    st.markdown("### Indicateurs clés de performance")
+    k1, k2, k3, k4, k5 = st.columns([2, 1.2, 1.5, 1.5, 2])
+    k1.metric("Coût total",            f"${p.get('total_cost', 0):,.2f}")
+    k2.metric("Clients",               f"{p.get('total_clients', 0):,}")
+    k3.metric("Coût / Client",         f"${p.get('cost_per_client', 0):,.2f}")
+    k4.metric("Heures économisées",    f"{p.get('estimated_hours_saved', 0):,.1f} h")
+    k5.metric("Économies salariales",  f"${p.get('estimated_salary_savings', 0):,.2f}")
 
     st.divider()
 
-    # ── Cost Breakdown ────────────────────────────────────────────────────────
+    # ── Répartition des coûts ─────────────────────────────────────────────────
     col_left, col_right = st.columns(2)
 
     with col_left:
-        st.markdown("## 💰 Cost Breakdown")
+        st.markdown("## 💰 Répartition des coûts")
         cost_items = {
             "Voice AI":        p.get("voice_cost", 0),
-            "SMS":             p.get("sms_cost", 0),
+            "Messages":        p.get("sms_cost", 0),
             "Email":           p.get("email_cost", 0) + p.get("email_notifications_cost", 0),
-            "Workflows":       p.get("workflow_cost", 0),
-            "Messaging":       p.get("messaging_cost", 0),
-            "Verifications":   p.get("verification_cost", 0),
-            "Subscription":    p.get("subscription_cost", 0),
+            "Flux de travail": p.get("workflow_cost", 0),
+            "Vérifications":   p.get("verification_cost", 0),
+            "Abonnement":      p.get("subscription_cost", 0),
         }
-        fig_pie = px.pie(
-            names=list(cost_items.keys()),
-            values=list(cost_items.values()),
-            color_discrete_sequence=px.colors.sequential.Purples_r,
-            hole=0.4,
+        # Graphique à barres horizontales trié par valeur
+        sorted_items = dict(sorted(cost_items.items(), key=lambda x: x[1]))
+        fig_cost = px.bar(
+            x=list(sorted_items.values()),
+            y=list(sorted_items.keys()),
+            orientation="h",
+            color=list(sorted_items.values()),
+            color_continuous_scale="Purples",
         )
-        fig_pie.update_traces(textposition="inside", textinfo="percent+label")
-        fig_pie.update_layout(showlegend=False, margin=dict(t=20, b=20))
-        st.plotly_chart(fig_pie, use_container_width=True)
+        fig_cost.update_traces(
+            texttemplate="$%{x:,.2f}",
+            textposition="outside",
+        )
+        fig_cost.update_layout(
+            showlegend=False, coloraxis_showscale=False,
+            margin=dict(t=20, b=20, r=100), yaxis_title="", xaxis_title="Coût ($)",
+        )
+        st.plotly_chart(fig_cost, use_container_width=True)
 
     with col_right:
-        st.markdown("## 📨 Communication Volume")
+        st.markdown("## 📨 Volume de communication")
         comm_items = {
-            "SMS Sent":          p.get("sms_sent", 0),
-            "Emails Sent":       p.get("emails_sent", 0),
-            "Email Notif.":      p.get("email_notifications", 0),
-            "AI Calls":          p.get("total_calls", 0),
-            "Workflow Actions":  p.get("workflow_actions", 0),
-            "Direct Messages":   p.get("messaging_direct", 0),
+            "Messages (SMS + Direct)":   p.get("sms_sent", 0) + p.get("messaging_direct", 0),
+            "Emails (Envoyés + Notif.)": p.get("emails_sent", 0) + p.get("email_notifications", 0),
+            "Appels IA":                 p.get("total_calls", 0),
+            "Actions de flux":           p.get("workflow_actions", 0),
         }
         fig_bar = px.bar(
             x=list(comm_items.values()),
@@ -193,32 +205,32 @@ if page == "📊 Dashboard":
         )
         fig_bar.update_layout(
             showlegend=False, coloraxis_showscale=False,
-            margin=dict(t=20, b=20), yaxis_title="", xaxis_title="Count"
+            margin=dict(t=20, b=20), yaxis_title="", xaxis_title="Nombre"
         )
         st.plotly_chart(fig_bar, use_container_width=True)
 
-    # ── Voice AI & Appointments ───────────────────────────────────────────────
+    # ── Voice AI & Rendez-vous ────────────────────────────────────────────────
     col_v, col_a = st.columns(2)
 
     with col_v:
-        st.markdown("## 📞 Voice AI Detail")
+        st.markdown("## 📞 Détail Voice AI")
         v1, v2, v3 = st.columns(3)
-        v1.metric("Total Calls",   f"{p.get('total_calls', 0):,}")
-        v2.metric("Inbound",       f"{p.get('inbound_calls', 0):,}")
-        v3.metric("Outbound",      f"{p.get('outbound_calls', 0):,}")
+        v1.metric("Total appels",  f"{p.get('total_calls', 0):,}")
+        v2.metric("Entrants",      f"{p.get('inbound_calls', 0):,}")
+        v3.metric("Sortants",      f"{p.get('outbound_calls', 0):,}")
         minutes = p.get("total_call_minutes", 0)
-        st.metric("Total Minutes", f"{minutes:,.0f} min ({minutes/60:,.1f} h)")
-        st.metric("Voice Cost",    f"${p.get('voice_cost', 0):,.2f} CAD")
+        st.metric("Total minutes", f"{minutes:,.0f} min ({minutes/60:,.1f} h)")
+        st.metric("Coût Voice",    f"${p.get('voice_cost', 0):,.2f}")
 
     with col_a:
-        st.markdown("## 📅 Appointments")
+        st.markdown("## 📅 Rendez-vous")
         appt_items = {
-            "Phone (AI)": p.get("appointments_phone", 0),
-            "Email":      p.get("appointments_email", 0),
-            "SMS":        p.get("appointments_sms", 0),
+            "Téléphone (IA)": p.get("appointments_phone", 0),
+            "Email":          p.get("appointments_email", 0),
+            "SMS":            p.get("appointments_sms", 0),
         }
         total_appt = sum(appt_items.values())
-        st.metric("Total Appointments", f"{total_appt:,}")
+        st.metric("Total rendez-vous", f"{total_appt:,}")
         fig_appt = px.pie(
             names=list(appt_items.keys()),
             values=list(appt_items.values()),
@@ -228,42 +240,42 @@ if page == "📊 Dashboard":
         fig_appt.update_layout(margin=dict(t=10, b=10), legend=dict(orientation="h"))
         st.plotly_chart(fig_appt, use_container_width=True)
 
-    # ── ROI Analysis ──────────────────────────────────────────────────────────
-    st.markdown("## 📈 ROI Analysis")
+    # ── Analyse ROI ───────────────────────────────────────────────────────────
+    st.markdown("## 📈 Analyse ROI")
     r1, r2, r3, r4 = st.columns(4)
     total_cost     = p.get("total_cost", 0)
     salary_savings = p.get("estimated_salary_savings", 0)
     net_savings    = salary_savings - total_cost
     roi_pct        = (net_savings / total_cost * 100) if total_cost else 0
 
-    r1.metric("Platform Cost",    f"${total_cost:,.2f}")
-    r2.metric("Salary Saved",     f"${salary_savings:,.2f}")
-    r3.metric("Net Savings",      f"${net_savings:,.2f}", delta=f"{net_savings:+,.2f}")
-    r4.metric("ROI",              f"{roi_pct:.0f}%")
+    r1.metric("Coût plateforme",   f"${total_cost:,.2f}")
+    r2.metric("Salaire économisé", f"${salary_savings:,.2f}")
+    r3.metric("Économies nettes",  f"${net_savings:,.2f}", delta=f"{net_savings:+,.2f}")
+    r4.metric("ROI",               f"{roi_pct:.0f}%")
 
-    # ── Multi-period comparison ───────────────────────────────────────────────
+    # ── Comparaison de périodes ───────────────────────────────────────────────
     if len(periods) > 1:
         st.divider()
-        st.markdown("## 🔄 Period Comparison")
+        st.markdown("## 🔄 Comparaison de périodes")
         df = pd.DataFrame(periods)
         df["label"] = df["period_start"] + " → " + df["period_end"]
         metrics_to_compare = ["total_cost", "total_actions", "estimated_hours_saved", "estimated_salary_savings"]
-        selected_metric = st.selectbox("Compare metric", metrics_to_compare)
+        selected_metric = st.selectbox("Comparer métrique", metrics_to_compare)
         fig_trend = px.bar(
             df, x="label", y=selected_metric,
             color_discrete_sequence=["#7c3aed"],
             text_auto=True,
         )
-        fig_trend.update_layout(xaxis_title="Period", yaxis_title=selected_metric.replace("_", " ").title())
+        fig_trend.update_layout(xaxis_title="Période", yaxis_title=selected_metric.replace("_", " ").title())
         st.plotly_chart(fig_trend, use_container_width=True)
 
 # ═══════════════════════════════════════════════════════════════════════════════
-# PAGE: PERIODS LIST
+# PAGE: PÉRIODES
 # ═══════════════════════════════════════════════════════════════════════════════
-elif page == "📅 Periods":
-    st.title("📅 Periods")
+elif page == "📅 Périodes":
+    st.title("📅 Périodes")
     if not periods:
-        st.info("No periods yet.")
+        st.info("Aucune période.")
     else:
         df = pd.DataFrame(periods)
         display_cols = [
@@ -273,73 +285,73 @@ elif page == "📅 Periods":
         display_cols = [c for c in display_cols if c in df.columns]
         st.dataframe(
             df[display_cols].rename(columns={
-                "period_start": "Start", "period_end": "End",
-                "total_clients": "Clients", "total_cost": "Total Cost ($)",
-                "total_actions": "Actions", "estimated_hours_saved": "Hours Saved",
-                "estimated_salary_savings": "Salary Savings ($)",
+                "period_start": "Début", "period_end": "Fin",
+                "total_clients": "Clients", "total_cost": "Coût total ($)",
+                "total_actions": "Actions", "estimated_hours_saved": "Heures économisées",
+                "estimated_salary_savings": "Économies salariales ($)",
             }),
             use_container_width=True, hide_index=True,
         )
         st.divider()
-        st.subheader("Delete a period")
-        del_label = st.selectbox("Select period to delete", [f"{p['period_start']} → {p['period_end']}" for p in periods])
-        if st.button("🗑️ Delete", type="secondary"):
+        st.subheader("Supprimer une période")
+        del_label = st.selectbox("Sélectionner une période à supprimer", [f"{p['period_start']} → {p['period_end']}" for p in periods])
+        if st.button("🗑️ Supprimer", type="secondary"):
             idx   = [f"{p['period_start']} → {p['period_end']}" for p in periods].index(del_label)
             pid   = periods[idx]["id"]
             db.periods.delete_one({"id": pid})
-            st.success("Period deleted.")
+            st.success("Période supprimée.")
             st.rerun()
 
 # ═══════════════════════════════════════════════════════════════════════════════
-# PAGE: ADD / EDIT PERIOD
+# PAGE: AJOUTER UNE PÉRIODE
 # ═══════════════════════════════════════════════════════════════════════════════
-elif page == "➕ Add Period":
-    st.title("➕ Add New Period")
+elif page == "➕ Ajouter une période":
+    st.title("➕ Ajouter une nouvelle période")
 
     with st.form("add_period"):
-        st.subheader("📆 Period Dates")
+        st.subheader("📆 Dates de la période")
         c1, c2 = st.columns(2)
-        period_start = c1.date_input("Start date")
-        period_end   = c2.date_input("End date")
+        period_start = c1.date_input("Date de début")
+        period_end   = c2.date_input("Date de fin")
         total_clients = st.number_input("Total clients", min_value=0, value=0)
 
         st.subheader("📱 Communication")
         col1, col2, col3 = st.columns(3)
-        sms_sent         = col1.number_input("SMS Sent",            min_value=0, value=0)
-        sms_cost         = col1.number_input("SMS Cost ($)",        min_value=0.0, value=0.0)
-        emails_sent      = col2.number_input("Emails Sent",         min_value=0, value=0)
-        email_cost       = col2.number_input("Email Cost ($)",      min_value=0.0, value=0.0)
-        email_notif      = col3.number_input("Email Notifications", min_value=0, value=0)
-        email_notif_cost = col3.number_input("Notif. Cost ($)",     min_value=0.0, value=0.0)
+        sms_sent         = col1.number_input("SMS Envoyés",         min_value=0, value=0)
+        sms_cost         = col1.number_input("Coût SMS ($)",        min_value=0.0, value=0.0)
+        emails_sent      = col2.number_input("Emails Envoyés",      min_value=0, value=0)
+        email_cost       = col2.number_input("Coût Email ($)",      min_value=0.0, value=0.0)
+        email_notif      = col3.number_input("Notifications Email", min_value=0, value=0)
+        email_notif_cost = col3.number_input("Coût Notif. ($)",     min_value=0.0, value=0.0)
 
         st.subheader("📞 Voice AI")
         v1, v2, v3 = st.columns(3)
-        total_calls   = v1.number_input("Total Calls",     min_value=0, value=0)
-        inbound_calls = v2.number_input("Inbound Calls",   min_value=0, value=0)
-        outbound_calls= v3.number_input("Outbound Calls",  min_value=0, value=0)
-        call_minutes  = v1.number_input("Call Minutes",    min_value=0.0, value=0.0)
-        voice_cost    = v2.number_input("Voice Cost ($)",  min_value=0.0, value=0.0)
+        total_calls    = v1.number_input("Total appels",      min_value=0, value=0)
+        inbound_calls  = v2.number_input("Appels entrants",   min_value=0, value=0)
+        outbound_calls = v3.number_input("Appels sortants",   min_value=0, value=0)
+        call_minutes   = v1.number_input("Minutes d'appel",   min_value=0.0, value=0.0)
+        voice_cost     = v2.number_input("Coût Voice ($)",    min_value=0.0, value=0.0)
 
-        st.subheader("⚙️ Workflows & Messaging")
+        st.subheader("⚙️ Flux de travail & Messagerie")
         w1, w2 = st.columns(2)
-        workflow_actions = w1.number_input("Workflow Actions", min_value=0, value=0)
-        workflow_cost    = w1.number_input("Workflow Cost ($)",min_value=0.0, value=0.0)
-        messaging_direct = w2.number_input("Direct Messages",  min_value=0, value=0)
-        messaging_cost   = w2.number_input("Messaging Cost ($)",min_value=0.0, value=0.0)
+        workflow_actions = w1.number_input("Actions de flux",      min_value=0, value=0)
+        workflow_cost    = w1.number_input("Coût flux ($)",        min_value=0.0, value=0.0)
+        messaging_direct = w2.number_input("Messages directs",     min_value=0, value=0)
+        messaging_cost   = w2.number_input("Coût messagerie ($)",  min_value=0.0, value=0.0)
 
-        st.subheader("📅 Appointments")
+        st.subheader("📅 Rendez-vous")
         a1, a2, a3 = st.columns(3)
-        appt_phone = a1.number_input("Phone Appointments", min_value=0, value=0)
-        appt_email = a2.number_input("Email Appointments", min_value=0, value=0)
-        appt_sms   = a3.number_input("SMS Appointments",   min_value=0, value=0)
+        appt_phone = a1.number_input("RDV téléphoniques", min_value=0, value=0)
+        appt_email = a2.number_input("RDV par email",     min_value=0, value=0)
+        appt_sms   = a3.number_input("RDV par SMS",       min_value=0, value=0)
 
-        st.subheader("✅ Verification & Subscription")
+        st.subheader("✅ Vérification & Abonnement")
         e1, e2, e3 = st.columns(3)
-        email_verif   = e1.number_input("Email Verifications", min_value=0, value=0)
-        verif_cost    = e2.number_input("Verification Cost ($)", min_value=0.0, value=0.0)
-        subscription  = e3.number_input("Subscription Cost ($)", min_value=0.0, value=settings.get("subscription_monthly", 297.0))
+        email_verif  = e1.number_input("Vérifications email",   min_value=0, value=0)
+        verif_cost   = e2.number_input("Coût vérification ($)", min_value=0.0, value=0.0)
+        subscription = e3.number_input("Coût abonnement ($)",   min_value=0.0, value=settings.get("subscription_monthly", 297.0))
 
-        submitted = st.form_submit_button("💾 Save Period", type="primary")
+        submitted = st.form_submit_button("💾 Enregistrer la période", type="primary")
 
     if submitted:
         data = {
@@ -362,23 +374,23 @@ elif page == "➕ Add Period":
         }
         data = calculate_totals(data, settings)
         db.periods.insert_one(data.copy())
-        st.success(f"✅ Period saved! Total cost: ${data['total_cost']:,.2f} CAD | Hours saved: {data['estimated_hours_saved']:.1f} h")
+        st.success(f"✅ Période enregistrée ! Coût total : ${data['total_cost']:,.2f} | Heures économisées : {data['estimated_hours_saved']:.1f} h")
         st.balloons()
 
 # ═══════════════════════════════════════════════════════════════════════════════
-# PAGE: SETTINGS
+# PAGE: PARAMÈTRES
 # ═══════════════════════════════════════════════════════════════════════════════
-elif page == "⚙️ Settings":
-    st.title("⚙️ Settings")
-    st.caption("These values are used to calculate estimated savings.")
+elif page == "⚙️ Paramètres":
+    st.title("⚙️ Paramètres")
+    st.caption("Ces valeurs sont utilisées pour calculer les économies estimées.")
 
     with st.form("settings_form"):
-        hourly_rate    = st.number_input("Hourly rate (CAD/h)", value=float(settings.get("hourly_rate", 20.0)), min_value=0.0, step=0.5)
-        call_manual    = st.number_input("Avg call duration if done manually (min)", value=float(settings.get("avg_call_duration_manual", 10.0)), min_value=0.0)
-        email_manual   = st.number_input("Avg email time if done manually (min)", value=float(settings.get("avg_email_time_manual", 3.0)), min_value=0.0)
-        sms_manual     = st.number_input("Avg SMS time if done manually (min)", value=float(settings.get("avg_sms_time_manual", 1.0)), min_value=0.0)
-        subscription   = st.number_input("Monthly subscription ($)", value=float(settings.get("subscription_monthly", 297.0)), min_value=0.0)
-        save = st.form_submit_button("💾 Save Settings", type="primary")
+        hourly_rate  = st.number_input("Taux horaire (CAD/h)", value=float(settings.get("hourly_rate", 20.0)), min_value=0.0, step=0.5)
+        call_manual  = st.number_input("Durée moyenne d'un appel si fait manuellement (min)", value=float(settings.get("avg_call_duration_manual", 10.0)), min_value=0.0)
+        email_manual = st.number_input("Temps moyen par email si fait manuellement (min)", value=float(settings.get("avg_email_time_manual", 3.0)), min_value=0.0)
+        sms_manual   = st.number_input("Temps moyen par SMS si fait manuellement (min)", value=float(settings.get("avg_sms_time_manual", 1.0)), min_value=0.0)
+        subscription = st.number_input("Abonnement mensuel ($)", value=float(settings.get("subscription_monthly", 297.0)), min_value=0.0)
+        save = st.form_submit_button("💾 Enregistrer les paramètres", type="primary")
 
     if save:
         updated = {
@@ -390,4 +402,4 @@ elif page == "⚙️ Settings":
             "subscription_monthly": subscription,
         }
         db.settings.update_one({"id": "global_settings"}, {"$set": updated}, upsert=True)
-        st.success("Settings saved!")
+        st.success("Paramètres enregistrés !")
